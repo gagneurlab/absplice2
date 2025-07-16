@@ -1,0 +1,14 @@
+name: pangolin_for_absplice
+channels:
+  - conda-forge
+dependencies:
+  - python==3.8
+  - pysam
+  - pandas
+  - pip:
+    - pyfastx
+    - gffutils
+    - biopython
+    - torch==2.2.1
+    - torchvision==0.17.1
+    - torchaudio==2.2.1

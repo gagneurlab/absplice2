@@ -1,0 +1,12 @@
+splicing_pred:
+  mmsplice_splicemap: ../data/results/{genome}/model_scores_from_absplice_features/{vcf_id}_MMSplice_SpliceMap.csv
+  pangolin_raw: ../data/results/{genome}/model_scores_from_absplice_features/{vcf_id}_Pangolin.vcf
+  pangolin_csv: ../data/results/{genome}/model_scores_from_absplice_features/{vcf_id}_Pangolin.csv
+  pangolin_splicemap: ../data/results/{genome}/model_scores_from_absplice_features/{vcf_id}_Pangolin_SpliceMap.csv
+
+  absplice_dna: ../data/results/{genome}/{vcf_id}_AbSplice_DNA.csv
+
+  delta_psi_inferred_from_cat: ../data/results/{genome}/model_scores_from_absplice_features/{vcf_id}_tissue_cat={tissue_cat}_delta_psi_inferred_from_cat.csv
+  cat_outliers: ../data/results/{genome}/model_scores_from_absplice_features/{vcf_id}_tissue_cat={tissue_cat}_FRASER_pval.csv
+  absplice_rna: ../data/results/{genome}/{vcf_id}_tissue_cat={tissue_cat}_AbSplice_RNA.csv
+  absplice_rna_with_dna_info: ../data/results/{genome}/{vcf_id}_tissue_cat={tissue_cat}_AbSplice_all_info.csv
