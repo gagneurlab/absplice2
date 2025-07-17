@@ -29,7 +29,7 @@ pip install -e .
 ```
 
 ## Example use case
-The [example](https://github.com/gagneurlab/absplice2/tree/master/example) folder contains a snakemake workflow to generate AbSplice predictions, given a vcf file and a fasta file (either for hg19 or hg38, will be downloaded automatically). \
+The [example](https://github.com/gagneurlab/absplice2/tree/main/example) folder contains a snakemake workflow to generate AbSplice predictions, given a vcf file and a fasta file (either for hg19 or hg38, will be downloaded automatically). \
 The snakemake workflow will download precomputed SpliceMaps from Zenodo and run AbSplice based on these annotations.
 To generate predictions run:
 ```
@@ -39,8 +39,8 @@ python -m snakemake -j 1 --use-conda
 ### AbSplice-DNA:
 To run the workflow on your own data do the following:
 
-- Store all (or provide a symlink to) vcf files for analysis in [`data/resources/analysis_files/vcf_files/`](https://github.com/gagneurlab/absplice2/tree/master/example/data/resources/analysis_files/vcf_files).
+- Store all (or provide a symlink to) vcf files for analysis in [`data/resources/analysis_files/vcf_files/`](https://github.com/gagneurlab/absplice2/tree/main/example/data/resources/analysis_files/vcf_files).
 
-- Specify the genome version that you are going to use (hg19 or hg38) in the field `genome` of the [config](https://github.com/gagneurlab/absplice2/blob/master/example/workflow/config.yaml#L4) file.
+- Specify the genome version that you are going to use (hg19 or hg38) in the field `genome` of the [config](https://github.com/gagneurlab/absplice2/blob/main/example/workflow/config.yaml#L4) file.
 
-- In the field `splicemap_tissues` of the [config](https://github.com/gagneurlab/absplice2/blob/master/example/workflow/config.yaml#L21) file you can uncomment the tissues that AbSplice will use to generate predictions.
+- In the field `splicemap_tissues` of the [config](https://github.com/gagneurlab/absplice2/blob/main/example/workflow/config.yaml#L21) file you can uncomment the tissues that AbSplice will use to generate predictions.
