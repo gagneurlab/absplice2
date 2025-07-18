@@ -7,6 +7,8 @@ genome: hg19
 
 extra_info_dna: True
 
+devAbSplice: True
+
 # store all the vcf file that you want to analyze to directory ../data/resources/vcf_files/
 vcf: ../data/resources/analysis_files/vcf_files/{vcf_id}
 
@@ -70,7 +72,31 @@ splicemap_tissues:
   # - Vagina
   - Whole_Blood
 
+dev_splicemap_tissues:
+  - brain
+  # - cerebellum
+  # - heart
+  # - kidney
+  # - liver
+  # - ovary
+  # - testis
 
+dev_splicemap_timepoints:
+  - t1
+  - t2
+  - t3
+  - t4
+  - t5
+  - t6
+  - t7
+  - t8
+  - t9
+  - t10
+  - t11
+  - t12
+  - t13
+  - t14
+  - t15
 # ============================= AbSplice-RNA related ================================
 
 AbSplice_RNA: False

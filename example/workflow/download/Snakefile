@@ -66,6 +66,24 @@ rule download_splicemaps:
         splicemap_psi5 = config_download['splicemap']['psi5'],
     shell:
         "splicemap_download --version {params.version} --splicemap_dir {params.dirname} --tissues {wildcards.tissue}"
+
+if config['devAbSplice']:
+    rule download_dev_splicemaps:
+        params:
+            version = splicemap_v_mapper[config['genome']],
+            dirname = splicemap_dir_name(config_download['splicemap']['psi3'])
+        output:
+            dev_splicemap_5 = expand(config_download['dev_splicemap']['psi5'], genome="{genome}", dev_tissue=config['dev_splicemap_tissues'], timepoint=config['dev_splicemap_timepoints']),
+            dev_splicemap_3 = expand(config_download['dev_splicemap']['psi3'], genome="{genome}", dev_tissue=config['dev_splicemap_tissues'], timepoint=config['dev_splicemap_timepoints'])
+        shell:
+            "dev_splicemap_download --version {params.version} --splicemap_dir {params.dirname}"
+
+    list_outputs.append(
+        expand(config_download['dev_splicemap']['psi5'], genome = config['genome'], dev_tissue=config['dev_splicemap_tissues'], timepoint=config['dev_splicemap_timepoints'])
+    )
+    list_outputs.append(
+        expand(config_download['dev_splicemap']['psi3'], genome = config['genome'], dev_tissue=config['dev_splicemap_tissues'], timepoint=config['dev_splicemap_timepoints'])
+    )
 list_outputs.append(
     expand(config_download['splicemap']['psi3'], 
     genome = config['genome'], tissue = config['splicemap_tissues']),
