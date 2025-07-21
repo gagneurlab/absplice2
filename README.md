@@ -1,5 +1,5 @@
 # AbSplice 2
-
+AbSplice 2 is a method that predicts aberrant splicing across human tissues and developmental stages, as described in [Wagner, Çelik et al., Nature Genetics 2023](https://www.nature.com/articles/s41588-023-01373-3), [Wagner et al, biorxiv 2025](https://www.biorxiv.org/content/10.1101/2025.07.16.665183v1).
 ## Installation with creating a conda environment
 
 Clone git repo:
