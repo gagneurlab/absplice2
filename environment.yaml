@@ -23,11 +23,10 @@ dependencies:
   - bioconda::cyvcf2==0.30.16
   - bioconda::tabix
   - bioconda::snakemake==7.26.0
-  - bioconda::spliceai
   - bioconda::kipoiseq>=0.7
   - deepdiff
   - pip:
     - mmsplice
     - interpret == 0.2.7
     - interpret-core == 0.2.7
-    - git+https://github.com/gagneurlab/splicemap.git
+    - git+https://github.com/gagneurlab/splicemap.git@dev
