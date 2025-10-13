@@ -36,17 +36,17 @@ setup(
     long_description=readme,
     long_description_content_type='text/markdown',
     include_package_data=True,
-    keywords='absplice2',
-    name='absplice2',
-    packages=find_packages(include=['absplice2']),
+    keywords='absplice',
+    name='absplice',
+    packages=find_packages(include=['absplice']),
     package_data={
-        'absplice2': ['absplice/precomputed/*']
+        'absplice': ['absplice/precomputed/*']
     },
     setup_requires=setup_requirements,
     extras_require=extras_requirements,
     test_suite='tests',
     tests_require=test_requirements,
     url='https://github.com/gagneurlab/absplice2',
-    version='0.0.1',
+    version='0.0.2',
     zip_safe=False
 )
