@@ -36,11 +36,11 @@ setup(
     long_description=readme,
     long_description_content_type='text/markdown',
     include_package_data=True,
-    keywords='absplice',
+    keywords='absplice2',
     name='absplice2',
     packages=find_packages(include=['absplice2']),
     package_data={
-        'absplice': ['absplice/precomputed/*']
+        'absplice2': ['absplice/precomputed/*']
     },
     setup_requires=setup_requirements,
     extras_require=extras_requirements,
