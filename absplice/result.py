@@ -7,15 +7,17 @@ import pickle
 from pathlib import Path
 import pathlib
 from absplice.utils import get_abs_max_rows, normalize_gene_annotation, \
-    read_csv, read_spliceai, read_cadd_splice, read_absplice
+    read_csv, read_spliceai, read_pangolin, read_cadd_splice, read_absplice
 from absplice.cat_dataloader import CatInference
 
 GENE_MAP = resource_filename(
     'absplice', 'precomputed/GENE_MAP.tsv.gz')
 GENE_TPM = resource_filename(
     'absplice', 'precomputed/GENE_TPM.csv.gz')
+# ABSPLICE_DNA = resource_filename(
+#     'absplice', 'precomputed/AbSplice_DNA.pkl')
 ABSPLICE_DNA = resource_filename(
-    'absplice', 'precomputed/AbSplice_DNA.pkl')
+    'absplice', 'precomputed/AbSplice_2_DNA.pkl')
 ABSPLICE_DNA_with_CADD_Splice = resource_filename(
     'absplice', 'precomputed/ABSPLICE_DNA_with_CADD_Splice.pkl')
 ABSPLICE_RNA = resource_filename(
@@ -40,10 +42,13 @@ dtype_columns = {
     'k': 'Int64',
     'n': 'Int64',
     'median_n': 'float64',
+    'median_n_pangolin': 'float64',
     'novel_junction': pd.BooleanDtype(),
     'weak_site_donor': pd.BooleanDtype(),
     'weak_site_acceptor': pd.BooleanDtype(),
     'delta_score': 'float64',
+    'loss_score': 'float64',
+    'gain_score': 'float64',
     'gene_name': pd.StringDtype(),
     'gene_name_spliceai': pd.StringDtype(),
     'gene_tpm': 'float64',
@@ -66,6 +71,7 @@ class SplicingOutlierResult:
     def __init__(self,
                  df_mmsplice=None,
                  df_spliceai=None,
+                 df_pangolin=None,
                  df_cadd_splice=None,
                  df_mmsplice_cat=None,
                  df_outliers_cat=None,
@@ -86,6 +92,7 @@ class SplicingOutlierResult:
         self.use_gtex_gene_tpm = use_gtex_gene_tpm
         self.gene_tpm = self.validate_df_gene_tpm(gene_tpm)
         self.df_spliceai = self.validate_df_spliceai(df_spliceai)
+        self.df_pangolin = self.validate_df_pangolin(df_pangolin)
         self.df_cadd_splice = self.validate_df_cadd_splice(df_cadd_splice)
         self._absplice_dna_input = self.validate_absplice_dna_input(
             df_absplice_dna_input)
@@ -176,6 +183,17 @@ class SplicingOutlierResult:
             if self.df_var_samples is not None:
                 df_spliceai = self._add_samples(df_spliceai)
         return df_spliceai
+
+    def validate_df_pangolin(self, df_pangolin):
+        if df_pangolin is not None:
+            df_pangolin = read_pangolin(df_pangolin)
+            df_pangolin = self._validate_df(
+                df_pangolin,
+                columns=['variant', 'gene_id', 'loss_score', 'gain_score', 'median_n_pangolin'])
+            df_pangolin = self._validate_dtype(df_pangolin)
+            if self.df_var_samples is not None:
+                df_pangolin = self._add_samples(df_pangolin)
+        return df_pangolin
     
     def validate_df_cadd_splice(self, df_cadd_splice):
         if df_cadd_splice is not None:
@@ -235,8 +253,8 @@ class SplicingOutlierResult:
             df_absplice_dna_input = self._validate_df(
                 df_absplice_dna_input,
                 columns=[
-                    'variant', 'gene_id', 'tissue', 'median_n',
-                    'delta_score', 'delta_logit_psi', 'delta_psi',
+                    'variant', 'gene_id', 'tissue', 'median_n_pangolin', 'median_n',
+                    'loss_score', 'gain_score', 'delta_logit_psi', 'delta_psi',
                 ])
             df_absplice_dna_input = self._validate_dtype(df_absplice_dna_input)
             groupby = ['variant', 'gene_id', 'tissue']
@@ -257,7 +275,7 @@ class SplicingOutlierResult:
                     'variant', 'gene_id', 'tissue', 'sample', 
                     # 'gene_tpm', 'event_type', 'splice_site', 'k', 'n',
                     'junction', 
-                    'delta_score', 'delta_logit_psi', 'delta_psi', 'ref_psi', 'median_n',
+                    'loss_score', 'gain_score', 'delta_logit_psi', 'delta_psi', 'ref_psi', 'median_n', 'median_n_pangolin', 'median_k', 
                     'tissue_cat', 'k_cat', 'n_cat', 'median_n_cat', 'psi_cat', 'ref_psi_cat',
                     'delta_logit_psi_cat', 'delta_psi_cat', 'pValueGene_g_minus_log10'
                 ])
@@ -320,6 +338,25 @@ class SplicingOutlierResult:
             self._df_spliceai_tissue = df_spliceai.copy()
             self._df_spliceai_tissue['tissue'] = 'Not provided'
         return self._df_spliceai_tissue
+        
+    def _add_tissue_info_to_pangolin(self):
+        """
+        checks if self.df_pangolin has 'tissue' column.
+        If self.df_mmsplice has 'tissue' column and self.df_pangolin does not have 'tissue' column,
+        tissue independent Pangolin predictions are copied for each tissue in self.df_mmsplice
+        """
+        df_pangolin = self.df_pangolin
+        if self.df_mmsplice is not None:
+            l = list()
+            for tissue in self.df_mmsplice['tissue'].unique():
+                _df = df_pangolin.copy()
+                _df['tissue'] = tissue
+                l.append(_df)
+            self._df_pangolin_tissue = pd.concat(l)
+        else:
+            self._df_pangolin_tissue = df_pangolin.copy()
+            self._df_pangolin_tissue['tissue'] = 'Not provided'
+        return self._df_pangolin_tissue
     
     def _add_tissue_info_to_df_outliers_cat(self):
         df_outliers_cat = self.df_outliers_cat
@@ -371,6 +408,9 @@ class SplicingOutlierResult:
         if self.df_spliceai is not None:
             if 'sample' not in self.df_spliceai.columns:
                 self.df_spliceai = self._add_samples(self.df_spliceai)
+        if self.df_pangolin is not None:
+            if 'sample' not in self.df_pangolin.columns:
+                self.df_pangolin = self._add_samples(self.df_pangolin)
 
     def infer_cat(self, cat_inference, progress=False):
         """
@@ -541,7 +581,7 @@ class SplicingOutlierResult:
                 'splice_site', 
                 'ref_psi', 
                 'median_n', 
-                'gene_name',
+                # 'gene_name',
                 'delta_logit_psi', 
                 'delta_psi',
             ]
@@ -589,6 +629,24 @@ class SplicingOutlierResult:
 
             # self._df_spliceai_agg = df_spliceai
 
+            # Pangolin
+            cols_pangolin = [
+                'loss_score',
+                'loss_pos',
+                'gain_score',
+                'gain_pos',
+                'median_n_pangolin',
+                'splice_site_pangolin',
+                'ref_psi_pangolin',
+                'junction_pangolin'
+                ]
+
+            if self.df_pangolin is not None:
+                # df_pangolin = self._add_tissue_info_to_pangolin()
+                df_pangolin = self.df_pangolin.set_index(groupby)
+            else:
+                df_pangolin = pd.DataFrame(columns=[*cols_pangolin, *groupby]).set_index(groupby)
+
             # CADD-Splice
             cols_cadd_splice = ['PHRED']
             if self.df_cadd_splice is not None:
@@ -598,9 +656,9 @@ class SplicingOutlierResult:
             else:
                 df_cadd_splice = pd.DataFrame(columns=[*cols_cadd_splice, *groupby]).set_index(groupby)
             
-            # Join MMSplice & SpliceAI
+            # Join MMSplice & Pangolin
             self._absplice_dna_input = df_mmsplice[cols_mmsplice].join(
-                df_spliceai[cols_spliceai], how='outer', rsuffix='_spliceai')
+                df_pangolin[cols_pangolin], how='outer', rsuffix='_pangolin')
             # Join CADD-Splice (if provided)
             self._absplice_dna_input = self._absplice_dna_input.join(
                 df_cadd_splice[cols_cadd_splice], how='outer', rsuffix='_cadd_splice')
@@ -649,25 +707,23 @@ class SplicingOutlierResult:
             'event_type', 
             'splice_site',
             'ref_psi', 
-            'median_n',
+            # 'median_n',
             # 'tissue'
         ]
-        spliceai_cols = [
-            'acceptor_gain',
-            'acceptor_loss',
-            'donor_gain',
-            'donor_loss',
-            'acceptor_gain_position',
-            'acceptor_loss_position', 
-            'donor_gain_position', 
-            'donor_loss_position'
+        pangolin_cols = [
+            'loss_pos',
+            'gain_pos',
+            'splice_site_pangolin',
+            'ref_psi_pangolin',
+            'junction_pangolin',
+            # 'event_type_pangolin'
         ]
         
         if extra_info==False:
             return self._absplice_dna[[*features, absplice_score]]
 
         else:
-            return self._absplice_dna[[*features, absplice_score, *mmsplice_splicemap_cols, *spliceai_cols]]
+            return self._absplice_dna[[*features, absplice_score, *mmsplice_splicemap_cols, *pangolin_cols]]
             
     def subset_output_rna(self, features, absplice_score, extra_info=True):
         mmsplice_splicemap_cols  = [
@@ -679,22 +735,16 @@ class SplicingOutlierResult:
             # 'tissue'
         ]
 
-        spliceai_cols = [
-            'acceptor_gain',
-            'acceptor_loss',
-            'donor_gain',
-            'donor_loss',
-            'acceptor_gain_position',
-            'acceptor_loss_position', 
-            'donor_gain_position', 
-            'donor_loss_position'
+        pangolin_cols = [
+            'loss_pos',
+            'gain_pos'
         ]
         
         if extra_info==False:
             return self._absplice_rna[[*features, absplice_score]]
 
         else:
-            return self._absplice_rna[[*features, absplice_score, *mmsplice_splicemap_cols, *spliceai_cols]]
+            return self._absplice_rna[[*features, absplice_score, *mmsplice_splicemap_cols, *pangolin_cols]]
 
         # # get aggregated scores of SpliceAI and MMSplice + SpliceMap
         # groupby = ['variant', 'gene_id', 'tissue']
@@ -739,13 +789,16 @@ class SplicingOutlierResult:
 
         # return self._absplice_dna
 
-    def _predict_absplice(self, df, absplice_score, pickle_file, features, abs_features, median_n_cutoff, tpm_cutoff=None):
+    def _predict_absplice(self, df, absplice_score, pickle_file, features, abs_features=False, median_n_cutoff=None, tpm_cutoff=None):
         model = pickle.load(open(pickle_file, 'rb'))
-        df['splice_site_is_expressed'] = (
-            df['median_n'] > median_n_cutoff).astype(int)
-        if tpm_cutoff:
-            df['gene_is_expressed'] = (df['gene_tpm'] > tpm_cutoff).astype(int) #TODO: remove
+        # if 'median_n' in df.columns:
+        #     df['splice_site_is_expressed'] = (
+        #         df['median_n'] > median_n_cutoff).astype(int)
+        # if tpm_cutoff:
+        #     df['gene_is_expressed'] = (df['gene_tpm'] > tpm_cutoff).astype(int) #TODO: remove
         df_features = df[features].fillna(0).copy()
+        if 'gain_score' in features:
+            df_features['gain_score'] = df_features['gain_score'].clip(upper=0.7)
         if abs_features:
             df_features = np.abs(df_features)
         df[absplice_score] = model.predict_proba(df_features)[:, 1]
