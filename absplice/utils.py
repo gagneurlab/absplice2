@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 from pyranges import PyRanges
 import pathlib
+import gzip
 from kipoiseq import Interval
 from kipoiseq.extractors.vcf import MultiSampleVCF
 from kipoiseq.extractors.vcf_query import BaseVariantQuery
@@ -106,6 +107,23 @@ def read_spliceai(path, **kwargs):
         else:
             raise ValueError("unknown file ending.")
 
+def read_pangolin(path, **kwargs):
+    if isinstance(path, pd.DataFrame):
+        return path
+    else:
+        if not isinstance(path, pathlib.PosixPath):
+            path = pathlib.Path(path)
+        if path.suffix.lower() == '.csv' or str(path).endswith('.csv.gz'):
+            return pd.read_csv(path, **kwargs)
+        elif path.suffix.lower() == '.tsv' or str(path).endswith('.tsv.gz'):
+            return pd.read_csv(path, sep='\t', **kwargs)
+        elif path.suffix.lower() == '.parquet':
+            return pd.read_parquet(path, **kwargs)
+        elif path.suffix.lower() == '.vcf' or str(path).endswith('.vcf.gz'):
+            return read_pangolin_vcf(path)
+        else:
+            raise ValueError("unknown file ending.")
+
 
 dtype_columns_spliceai = {
     'variant': pd.StringDtype(), 
@@ -146,6 +164,46 @@ def read_spliceai_vcf(path):
     for col in df.columns:
         if col in dtype_columns_spliceai.keys():
             df = df.astype({col: dtype_columns_spliceai[col]})
+            
+    return df
+
+def read_pangolin_vcf(path):
+    df = {
+        'variant': [],
+        'gene_id': [],
+        'gain_score': [],
+        'gain_pos': [],
+        'loss_score': [],
+        'loss_pos': [],
+    }
+
+    if str(path).endswith('.gz'):
+        vcf_in =  gzip.open(path, 'rt')
+    else:
+        vcf_in =  open(path, 'r')
+
+    for line in vcf_in:
+        if not line.startswith('#') and 'Pangolin=' in line:
+            chrom = line.split('\t')[0]
+            pos = int(line.split('\t')[1])
+            ref = line.split('\t')[3]
+            alt = line.split('\t')[4]
+            per_gene_string_scores = line.split('\t')[7].split('Pangolin=')[1].split(',')
+            for gene_scores in per_gene_string_scores:
+                df['variant'].append(f'{chrom}:{pos}:{ref}>{alt}')
+                gene_id = gene_scores.split('|')[0].split('.')[0]
+                df['gene_id'].append(gene_id)
+                gain_score = float(gene_scores.split('|')[1].split(':')[1])
+                gain_pos = int(gene_scores.split('|')[1].split(':')[0])
+                loss_score = float(gene_scores.split('|')[2].split(':')[1])
+                loss_pos = int(gene_scores.split('|')[2].split(':')[0])
+                df['gain_score'].append(gain_score)
+                df['gain_pos'].append(gain_pos)
+                df['loss_score'].append(loss_score)
+                df['loss_pos'].append(loss_pos)
+    
+    vcf_in.close()
+    df = pd.DataFrame(df)
             
     return df
 
@@ -352,3 +410,77 @@ def intervals_to_pyranges(intervals: List[Interval]) -> PyRanges:
         for i in intervals
     ], columns=['Chromosome', 'Start', 'End', 'interval'])
     return pyranges.PyRanges(df)
+
+def get_pr_coords_splice_site(splice_site):
+    chrom = splice_site.split(':')[0]
+    pos = int(splice_site.split(':')[1])
+    return chrom, pos-1, pos
+
+def get_pr_coords_junctions(junction, position='j1'):
+    chrom = junction.split(':')[0]
+    if position == 'j1':
+        pos = int(junction.split(':')[1].split('-')[0])
+    elif position == 'j2':
+        pos = int(junction.split(':')[1].split('-')[1])
+    else:
+        raise NotImplementedError()
+    return chrom, pos-1, pos
+
+def get_pr_coords_pangolin(row, score_type):
+    chrom = row['variant'].split(':')[0]
+    var_pos = int(row['variant'].split(':')[1])
+
+    # take the variant position if the score is 0
+    if np.abs(row[f'{score_type}_score']) > 0:
+        pang_pos = row[f'{score_type}_pos']
+        pos = var_pos + pang_pos
+        return chrom, pos-1, pos
+    else:
+        return chrom, var_pos-1, var_pos
+
+def pangolin_tissue_specific(row):
+    ref_psi_gain = row['ref_psi_gain']
+    ref_psi_loss = row['ref_psi_loss']
+    median_n_gain = row['median_n_gain']
+    median_n_loss = row['median_n_loss']
+    score_gain = row['gain_score']
+    score_loss = row['loss_score']
+    splice_site_gain = row['splice_site_gain']
+    splice_site_loss = row['splice_site_loss']
+    junction_gain = row['junction_gain']
+    junction_loss = row['junction_loss']
+    
+    if np.isnan(ref_psi_gain) and np.isnan(ref_psi_loss):
+        ref_psi = np.nan
+        # score = max([score_gain, score_loss], key=abs)
+        score = score_gain
+        median_n = median_n_gain
+        splice_site = splice_site_gain
+        junction = junction_gain
+    elif not np.isnan(ref_psi_gain) and np.isnan(ref_psi_loss):
+        ref_psi = ref_psi_gain
+        score = score_gain
+        median_n = median_n_gain
+        splice_site = splice_site_gain
+        junction = junction_gain
+    elif np.isnan(ref_psi_gain) and not np.isnan(ref_psi_loss):
+        ref_psi = ref_psi_loss
+        score = score_loss
+        median_n = median_n_loss
+        splice_site = splice_site_loss
+        junction = junction_loss
+    else:
+        if np.abs(score_gain) >= np.abs(score_loss):
+            ref_psi = ref_psi_gain
+            score = score_gain
+            median_n = median_n_gain
+            splice_site = splice_site_gain
+            junction = junction_gain
+        else:
+            ref_psi = ref_psi_loss
+            score = score_loss
+            median_n = median_n_loss
+            splice_site = splice_site_loss
+            junction = junction_loss
+            
+    return score, ref_psi, median_n, splice_site, junction
