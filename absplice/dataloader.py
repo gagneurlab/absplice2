@@ -245,10 +245,16 @@ class PangolinSpliceMap:
         df_pangolin_loss_joined = pr.PyRanges(self.df_pangolin_loss).join(
             pr.PyRanges(self.df_splicemap[splicemap_cols]), how='left', slack=self.slack
         ).df.drop(columns=['Start_b', 'End_b'])
-        
+        # to not lose the pangolin scores when no splice sites overlap
+        if df_pangolin_loss_joined['gene_id_b'].unique() == ['-1']:
+            df_pangolin_loss_joined['gene_id_b'] = df_pangolin_loss_joined['gene_id']
+
         df_pangolin_gain_joined = pr.PyRanges(self.df_pangolin_gain).join(
             pr.PyRanges(self.df_splicemap[splicemap_cols]), how='left', slack=self.slack
         ).df.drop(columns=['Start_b', 'End_b'])
+        # to not lose the pangolin scores when no splice sites overlap
+        if df_pangolin_gain_joined['gene_id_b'].unique() == ['-1']:
+            df_pangolin_gain_joined['gene_id_b'] = df_pangolin_gain_joined['gene_id']
 
         # Get the correct gene ids
         df_pangolin_loss_joined = df_pangolin_loss_joined[
